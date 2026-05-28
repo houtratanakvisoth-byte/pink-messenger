@@ -11,12 +11,30 @@ app.get('/', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-  socket.on('chat message', (data) => {
-    // This broadcasts the message to everyone connected
-    io.emit('chat message', data);
-  });
+    console.log('User connected');
+
+    // 1. Logic to join a specific room
+    socket.on('join room', (roomName) => {
+        // Leave previous rooms first (except their own ID)
+        socket.rooms.forEach(room => {
+            if (room !== socket.id) socket.leave(room);
+        });
+        
+        socket.join(roomName);
+        console.log(`User joined room: ${roomName}`);
+    });
+
+    // 2. Logic to send message ONLY to that room
+    socket.on('chat message', (data) => {
+        // data.room is the name of the private room
+        io.to(data.room).emit('chat message', data);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected');
+    });
 });
 
 http.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is live on port ${PORT}`);
 });
