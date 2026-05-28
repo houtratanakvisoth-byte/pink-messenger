@@ -3,56 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pink Messenger | Live</title>
+    <title>Pink Messenger | Private & Public</title>
     <style>
         :root {
             --pink-primary: #ff527b;
             --pink-gradient: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%);
             --pink-light: #fff0f3;
             --bg-gray: #f0f2f5;
-            --text-dark: #050505;
             --bubble-gray: #e4e6eb;
         }
 
-        body { margin: 0; font-family: sans-serif; background-color: var(--bg-gray); height: 100vh; display: flex; }
-        .container { display: flex; width: 100vw; height: 100vh; background: #fff; }
+        body { margin: 0; font-family: sans-serif; background-color: var(--bg-gray); height: 100vh; display: flex; flex-direction: column; }
+        
+        /* Top Bar for Room Selection */
+        .room-bar { background: white; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; }
+        .room-bar input { padding: 8px; border-radius: 15px; border: 1px solid #ddd; }
+        .room-bar button { background: var(--pink-primary); color: white; border: none; padding: 8px 15px; border-radius: 15px; cursor: pointer; }
+
+        .container { display: flex; flex-grow: 1; overflow: hidden; }
         
         /* Sidebar */
-        .sidebar { width: 300px; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
-        .sidebar-header { padding: 20px; font-size: 24px; font-weight: bold; }
-        .avatar { width: 45px; height: 45px; border-radius: 50%; background: var(--pink-primary); margin: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+        .sidebar { width: 250px; border-right: 1px solid #ddd; background: white; display: none; } /* Hidden on mobile */
+        @media (min-width: 768px) { .sidebar { display: flex; flex-direction: column; } }
 
-        /* Chat Area */
-        .chat-area { flex-grow: 1; display: flex; flex-direction: column; }
+        /* Chat Window */
+        .chat-area { flex-grow: 1; display: flex; flex-direction: column; background: white; }
+        .current-room-title { padding: 15px; font-weight: bold; border-bottom: 1px solid #eee; color: var(--pink-primary); }
         .messages { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
         
         /* Bubbles */
-        .bubble { max-width: 70%; padding: 12px; border-radius: 18px; font-size: 15px; }
+        .bubble { max-width: 70%; padding: 12px; border-radius: 18px; font-size: 15px; word-wrap: break-word; }
         .received { background: var(--bubble-gray); align-self: flex-start; }
         .sent { background: var(--pink-gradient); color: white; align-self: flex-end; }
+        .system-msg { align-self: center; font-size: 12px; color: #888; background: #eee; padding: 4px 10px; border-radius: 10px; }
 
-        /* Input */
+        /* Input Dock */
         .input-box { padding: 15px; display: flex; gap: 10px; border-top: 1px solid #ddd; }
-        input { flex-grow: 1; padding: 10px; border-radius: 20px; border: 1px solid #ddd; outline: none; background: #f0f2f5; }
-        button { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--pink-primary); }
+        #msg-input { flex-grow: 1; padding: 12px; border-radius: 25px; border: 1px solid #ddd; outline: none; background: #f0f2f5; }
+        #send-btn { background: none; border: none; font-size: 28px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <aside class="sidebar">
-            <div class="sidebar-header">Pink Chat</div>
-            <div style="display: flex; align-items: center; background: var(--pink-light);">
-                <div class="avatar">GP</div>
-                <span>Global Party</span>
-            </div>
-        </aside>
+    <div class="room-bar">
+        <div>
+            <strong>Room:</strong> <span id="display-room">Global</span>
+        </div>
+        <div>
+            <input type="text" id="room-input" placeholder="Enter Private Room ID">
+            <button onclick="changeRoom()">Join Private</button>
+            <button onclick="goGlobal()" style="background:#666;">Exit to Global</button>
+        </div>
+    </div>
 
+    <div class="container">
         <main class="chat-area">
             <div class="messages" id="history"></div>
             <form class="input-box" id="form">
-                <input type="text" id="input" placeholder="Type a message..." autocomplete="off">
-                <button type="submit">💖</button>
+                <input type="text" id="msg-input" placeholder="Type a message..." autocomplete="off">
+                <button type="submit" id="send-btn">💖</button>
             </form>
         </main>
     </div>
@@ -60,13 +69,40 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        const myId = "User_" + Math.floor(Math.random() * 1000);
-        
+        let currentRoom = 'global';
+        const myName = "User_" + Math.floor(Math.random() * 1000);
+
+        // Function to join a private room
+        function changeRoom() {
+            const newRoom = document.getElementById('room-input').value.trim();
+            if (newRoom) {
+                currentRoom = newRoom;
+                document.getElementById('display-room').innerText = newRoom;
+                document.getElementById('history').innerHTML = '<div class="system-msg">Joined Private Room: ' + newRoom + '</div>';
+                socket.emit('join room', newRoom);
+            }
+        }
+
+        // Function to return to public chat
+        function goGlobal() {
+            currentRoom = 'global';
+            document.getElementById('display-room').innerText = 'Global';
+            document.getElementById('history').innerHTML = '<div class="system-msg">Returned to Global Chat</div>';
+            socket.emit('join room', 'global');
+        }
+
+        // Initial Join
+        socket.emit('join room', 'global');
+
         document.getElementById('form').addEventListener('submit', (e) => {
             e.preventDefault();
-            const input = document.getElementById('input');
+            const input = document.getElementById('msg-input');
             if (input.value) {
-                socket.emit('chat message', { user: myId, text: input.value });
+                socket.emit('chat message', { 
+                    user: myName, 
+                    text: input.value,
+                    room: currentRoom 
+                });
                 input.value = '';
             }
         });
@@ -74,11 +110,14 @@
         socket.on('chat message', (data) => {
             const div = document.createElement('div');
             div.classList.add('bubble');
-            div.classList.add(data.user === myId ? 'sent' : 'received');
-            div.textContent = (data.user === myId ? "" : data.user + ": ") + data.text;
+            div.classList.add(data.user === myName ? 'sent' : 'received');
+            div.textContent = (data.user === myName ? "" : data.user + ": ") + data.text;
             document.getElementById('history').appendChild(div);
             document.getElementById('history').scrollTop = document.getElementById('history').scrollHeight;
         });
+    </script>
+</body>
+</html>
     </script>
 </body>
 </html>
