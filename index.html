@@ -3,233 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pink Messenger | Pro Edition</title>
+    <title>Pink Messenger | Password Locked</title>
     <style>
-        :root {
-            --pink-primary: #ff527b;
-            --pink-gradient: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%);
-            --pink-light: #fff0f3;
-            --bg-gray: #f0f2f5;
-            --bubble-gray: #e4e6eb;
-        }
-
+        /* Keep all your existing pink styles here... */
+        :root { --pink-primary: #ff527b; --pink-gradient: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%); --bg-gray: #f0f2f5; }
         body { margin: 0; font-family: sans-serif; background-color: var(--bg-gray); height: 100vh; display: flex; flex-direction: column; }
         
-        /* Nickname Login Screen Overlay */
-        #login-overlay { position: fixed; top:0; left:0; width:100vw; height:100vh; background: var(--pink-light); display: flex; justify-content: center; align-items: center; z-index: 999; }
-        .login-box { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; max-width: 350px; width: 90%; }
-        .login-box h2 { color: var(--pink-primary); margin-bottom: 20px; }
-        .login-box input, .login-box select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 25px; box-sizing: border-box; outline: none; }
-        .login-box button { background: var(--pink-gradient); color: white; border: none; width: 100%; padding: 12px; border-radius: 25px; font-weight: bold; cursor: pointer; font-size: 16px; }
-
-        /* Main App Interface */
-        .room-bar { background: white; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; gap: 10px; flex-wrap: wrap; }
-        .room-bar input { padding: 8px; border-radius: 15px; border: 1px solid #ddd; outline: none; }
-        .room-bar button { background: var(--pink-primary); color: white; border: none; padding: 8px 15px; border-radius: 15px; cursor: pointer; font-weight: bold; }
-
-        .container { display: flex; flex-grow: 1; overflow: hidden; }
-        .chat-area { flex-grow: 1; display: flex; flex-direction: column; background: white; }
-        .messages { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        #login-overlay { position: fixed; top:0; left:0; width:100vw; height:100vh; background: #fff0f3; display: flex; justify-content: center; align-items: center; z-index: 999; }
+        .login-box { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 350px; }
+        .login-box input, .login-box select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 25px; box-sizing: border-box; outline: none; }
+        .login-box button { background: var(--pink-gradient); color: white; border: none; width: 100%; padding: 12px; border-radius: 25px; font-weight: bold; cursor: pointer; }
         
-        /* Message Layout with Avatar and Time */
-        .msg-row { display: flex; gap: 8px; align-items: flex-end; max-width: 70%; }
-        .msg-row.sent { align-self: flex-end; flex-direction: row-reverse; }
-        .msg-row.received { align-self: flex-start; }
-        
-        .avatar { font-size: 24px; background: #eee; border-radius: 50%; padding: 5px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
-        
-        .bubble-wrapper { display: flex; flex-direction: column; }
-        .msg-row.sent .bubble-wrapper { align-items: flex-end; }
-        .msg-row.received .bubble-wrapper { align-items: flex-start; }
-
-        .username { font-size: 11px; color: #777; margin-bottom: 2px; padding: 0 5px; }
-        .bubble { padding: 12px; border-radius: 18px; font-size: 15px; word-wrap: break-word; }
-        .received .bubble { background: var(--bubble-gray); }
+        /* Rest of your chat styles from the previous version... */
+        .room-bar { background: white; padding: 10px; display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; }
+        .messages { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; background: white; }
+        .msg-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .msg-row.sent { flex-direction: row-reverse; align-self: flex-end; }
+        .bubble { padding: 10px; border-radius: 15px; background: #eee; max-width: 70%; }
         .sent .bubble { background: var(--pink-gradient); color: white; }
-        
-        .chat-img { max-width: 200px; border-radius: 12px; display: block; margin-top: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .timestamp { font-size: 10px; color: #aaa; margin-top: 3px; }
-        .system-msg { align-self: center; font-size: 12px; color: #888; background: #eee; padding: 4px 10px; border-radius: 10px; }
-
-        /* Input Bar Actions */
-        .input-box { padding: 15px; display: flex; gap: 10px; border-top: 1px solid #ddd; align-items: center; }
-        #msg-input { flex-grow: 1; padding: 12px; border-radius: 25px; border: 1px solid #ddd; outline: none; background: #f0f2f5; }
-        .action-btn { background: none; border: none; font-size: 24px; cursor: pointer; outline: none; padding: 0; }
-        #file-input { display: none; }
+        .input-box { padding: 15px; display: flex; gap: 10px; border-top: 1px solid #ddd; }
+        #msg-input { flex-grow: 1; padding: 10px; border-radius: 20px; border: 1px solid #ddd; }
     </style>
 </head>
 <body>
 
-    <!-- Join Screen -->
     <div id="login-overlay">
         <div class="login-box">
-            <h2>🌸 Welcome! 🌸</h2>
-            <input type="text" id="username-input" placeholder="Enter your Nickname" maxlength="15">
+            <h2>🌸 Private Messenger 🌸</h2>
+            <input type="text" id="username-input" placeholder="Nickname">
+            <input type="password" id="password-input" placeholder="Secret Password">
             <select id="avatar-input">
                 <option value="💖">💖 Heart</option>
-                <option value="🌸">🌸 Cherry Blossom</option>
                 <option value="🦄">🦄 Unicorn</option>
                 <option value="🐱">🐱 Kitten</option>
-                <option value="🦊">🦊 Fox</option>
-                <option value="🧸">🧸 Teddy</option>
             </select>
-            <button onclick="startChat()">Enter Chatroom</button>
+            <button onclick="tryLogin()">Login / Register</button>
+            <p id="error-msg" style="color: red; font-size: 12px;"></p>
         </div>
     </div>
 
-    <!-- Main Messenger View -->
     <div class="room-bar">
+        <strong>Room: <span id="display-room">Global</span></strong>
         <div>
-            <strong>Room:</strong> <span id="display-room">Global</span>
-        </div>
-        <div>
-            <input type="text" id="room-input" placeholder="Enter Room ID">
-            <button onclick="changeRoom()">Join Room</button>
-            <button onclick="goGlobal()" style="background:#666;">Global Chat</button>
+            <input type="text" id="room-input" placeholder="Room ID" style="width:80px">
+            <button onclick="changeRoom()">Join</button>
         </div>
     </div>
 
-    <div class="container">
-        <main class="chat-area">
-            <div class="messages" id="history"></div>
-            <form class="input-box" id="form">
-                <!-- Photo Upload Attachment Trigger -->
-                <button type="button" class="action-btn" onclick="document.getElementById('file-input').click()">📷</button>
-                <input type="file" id="file-input" accept="image/*" onchange="sendPhoto(this)">
-                
-                <input type="text" id="msg-input" placeholder="Type a message..." autocomplete="off">
-                <button type="submit" class="action-btn">💖</button>
-            </form>
-        </main>
-    </div>
+    <div id="history" class="messages"></div>
+
+    <form class="input-box" id="form">
+        <button type="button" onclick="document.getElementById('file-input').click()">📷</button>
+        <input type="file" id="file-input" hidden onchange="sendPhoto(this)">
+        <input type="text" id="msg-input" placeholder="Type a message...">
+        <button type="submit">💖</button>
+    </form>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let currentRoom = 'global';
         let myName = "";
         let myAvatar = "";
+        let currentRoom = "global";
 
-        // Function lock login view setup
-        function startChat() {
-            const chosenName = document.getElementById('username-input').value.trim();
-            if(!chosenName) return alert("Please type a nickname!");
-            myName = chosenName;
-            myAvatar = document.getElementById('avatar-input').value;
+        function tryLogin() {
+            const user = document.getElementById('username-input').value.trim();
+            const pass = document.getElementById('password-input').value.trim();
+            if(!user || !pass) return alert("Fill in both boxes!");
             
+            // Ask server if this name + password is okay
+            socket.emit('verify user', { username: user, password: pass });
+        }
+
+        socket.on('login success', (data) => {
+            myName = data.username;
+            myAvatar = document.getElementById('avatar-input').value;
             document.getElementById('login-overlay').style.display = 'none';
             socket.emit('join room', 'global');
-        }
+        });
 
+        socket.on('login fail', (msg) => {
+            document.getElementById('error-msg').innerText = msg;
+        });
+
+        // Use your previous appendMessage, sendPhoto, and changeRoom functions here!
+        // (The logic remains the same)
+        
         function appendMessage(data) {
-            const historyDiv = document.getElementById('history');
-            
-            const row = document.createElement('div');
-            row.classList.add('msg-row');
-            row.classList.add(data.user === myName ? 'sent' : 'received');
-
-            // Avatar setup
-            const avatarDiv = document.createElement('div');
-            avatarDiv.classList.add('avatar');
-            avatarDiv.textContent = data.avatar || "👤";
-            row.appendChild(avatarDiv);
-
-            // Bubble container wrapper
-            const wrapper = document.createElement('div');
-            wrapper.classList.add('bubble-wrapper');
-
-            // Add username label to incoming responses
-            if(data.user !== myName) {
-                const nameLabel = document.createElement('div');
-                nameLabel.classList.add('username');
-                nameLabel.textContent = data.user;
-                wrapper.appendChild(nameLabel);
-            }
-
-            // Text message payload
-            if(data.text) {
-                const bubble = document.createElement('div');
-                bubble.classList.add('bubble');
-                bubble.textContent = data.text;
-                wrapper.appendChild(bubble);
-            }
-
-            // Image attachment payload
-            if(data.image) {
-                const img = document.createElement('img');
-                img.src = data.image;
-                img.classList.add('chat-img');
-                wrapper.appendChild(img);
-            }
-
-            // Formatted Time parsing
-            const timeDiv = document.createElement('div');
-            timeDiv.classList.add('timestamp');
-            const date = new Date(data.timestamp);
-            timeDiv.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + " ✓"; // Added seen indicator check
-            wrapper.appendChild(timeDiv);
-
-            row.appendChild(wrapper);
-            historyDiv.appendChild(row);
-            historyDiv.scrollTop = historyDiv.scrollHeight;
+            const div = document.createElement('div');
+            div.className = 'msg-row ' + (data.user === myName ? 'sent' : 'received');
+            div.innerHTML = `<div class="bubble"><b>${data.user}:</b><br>${data.text || ''}</div>`;
+            if(data.image) div.innerHTML += `<img src="${data.image}" style="max-width:200px; border-radius:10px;">`;
+            document.getElementById('history').appendChild(div);
+            document.getElementById('history').scrollTop = document.getElementById('history').scrollHeight;
         }
 
-        // Photo processing conversion to server stream channel
-        function sendPhoto(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    socket.emit('chat message', {
-                        user: myName,
-                        avatar: myAvatar,
-                        image: e.target.result,
-                        room: currentRoom
-                    });
-                };
-                reader.readAsDataURL(input.files[0]);
-                input.value = ''; // Reset input track file
-            }
-        }
-
-        function changeRoom() {
-            const newRoom = document.getElementById('room-input').value.trim();
-            if (newRoom && myName) {
-                currentRoom = newRoom;
-                document.getElementById('display-room').innerText = newRoom;
-                document.getElementById('history').innerHTML = '<div class="system-msg">Loading chat history...</div>';
-                socket.emit('join room', newRoom);
-            }
-        }
-
-        function goGlobal() {
-            if(!myName) return;
-            currentRoom = 'global';
-            document.getElementById('display-room').innerText = 'Global';
-            document.getElementById('history').innerHTML = '<div class="system-msg">Loading Global Chat...</div>';
-            socket.emit('join room', 'global');
-        }
-
-        socket.on('load history', (historyArray) => {
-            document.getElementById('history').innerHTML = '<div class="system-msg">Welcome to ' + currentRoom + '</div>';
-            historyArray.forEach(msg => appendMessage(msg));
+        socket.on('chat message', (data) => appendMessage(data));
+        socket.on('load history', (list) => {
+            document.getElementById('history').innerHTML = '';
+            list.forEach(m => appendMessage(m));
         });
 
         document.getElementById('form').addEventListener('submit', (e) => {
             e.preventDefault();
             const input = document.getElementById('msg-input');
-            if (input.value && myName) {
-                socket.emit('chat message', { 
-                    user: myName, 
-                    avatar: myAvatar,
-                    text: input.value,
-                    room: currentRoom 
-                });
+            if(input.value) {
+                socket.emit('chat message', { user: myName, avatar: myAvatar, text: input.value, room: currentRoom });
                 input.value = '';
             }
-        });
-
-        socket.on('chat message', (data) => {
-            if(myName) appendMessage(data);
         });
     </script>
 </body>
