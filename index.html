@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pink Messenger | Private & Public</title>
+    <title>Pink Messenger | Permanent History</title>
     <style>
         :root {
             --pink-primary: #ff527b;
@@ -14,30 +14,19 @@
         }
 
         body { margin: 0; font-family: sans-serif; background-color: var(--bg-gray); height: 100vh; display: flex; flex-direction: column; }
-        
-        /* Top Bar for Room Selection */
-        .room-bar { background: white; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; }
-        .room-bar input { padding: 8px; border-radius: 15px; border: 1px solid #ddd; }
-        .room-bar button { background: var(--pink-primary); color: white; border: none; padding: 8px 15px; border-radius: 15px; cursor: pointer; }
+        .room-bar { background: white; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; gap: 10px; flex-wrap: wrap; }
+        .room-bar input { padding: 8px; border-radius: 15px; border: 1px solid #ddd; outline: none; }
+        .room-bar button { background: var(--pink-primary); color: white; border: none; padding: 8px 15px; border-radius: 15px; cursor: pointer; font-weight: bold; }
 
         .container { display: flex; flex-grow: 1; overflow: hidden; }
-        
-        /* Sidebar */
-        .sidebar { width: 250px; border-right: 1px solid #ddd; background: white; display: none; } /* Hidden on mobile */
-        @media (min-width: 768px) { .sidebar { display: flex; flex-direction: column; } }
-
-        /* Chat Window */
         .chat-area { flex-grow: 1; display: flex; flex-direction: column; background: white; }
-        .current-room-title { padding: 15px; font-weight: bold; border-bottom: 1px solid #eee; color: var(--pink-primary); }
         .messages { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
         
-        /* Bubbles */
         .bubble { max-width: 70%; padding: 12px; border-radius: 18px; font-size: 15px; word-wrap: break-word; }
         .received { background: var(--bubble-gray); align-self: flex-start; }
         .sent { background: var(--pink-gradient); color: white; align-self: flex-end; }
         .system-msg { align-self: center; font-size: 12px; color: #888; background: #eee; padding: 4px 10px; border-radius: 10px; }
 
-        /* Input Dock */
         .input-box { padding: 15px; display: flex; gap: 10px; border-top: 1px solid #ddd; }
         #msg-input { flex-grow: 1; padding: 12px; border-radius: 25px; border: 1px solid #ddd; outline: none; background: #f0f2f5; }
         #send-btn { background: none; border: none; font-size: 28px; cursor: pointer; }
@@ -50,9 +39,9 @@
             <strong>Room:</strong> <span id="display-room">Global</span>
         </div>
         <div>
-            <input type="text" id="room-input" placeholder="Enter Private Room ID">
-            <button onclick="changeRoom()">Join Private</button>
-            <button onclick="goGlobal()" style="background:#666;">Exit to Global</button>
+            <input type="text" id="room-input" placeholder="Enter Room ID">
+            <button onclick="changeRoom()">Join Room</button>
+            <button onclick="goGlobal()" style="background:#666;">Global Chat</button>
         </div>
     </div>
 
@@ -72,27 +61,40 @@
         let currentRoom = 'global';
         const myName = "User_" + Math.floor(Math.random() * 1000);
 
-        // Function to join a private room
+        function appendMessage(data) {
+            const div = document.createElement('div');
+            div.classList.add('bubble');
+            div.classList.add(data.user === myName ? 'sent' : 'received');
+            div.textContent = (data.user === myName ? "" : data.user + ": ") + data.text;
+            document.getElementById('history').appendChild(div);
+            document.getElementById('history').scrollTop = document.getElementById('history').scrollHeight;
+        }
+
         function changeRoom() {
             const newRoom = document.getElementById('room-input').value.trim();
             if (newRoom) {
                 currentRoom = newRoom;
                 document.getElementById('display-room').innerText = newRoom;
-                document.getElementById('history').innerHTML = '<div class="system-msg">Joined Private Room: ' + newRoom + '</div>';
+                document.getElementById('history').innerHTML = '<div class="system-msg">Loading chat history...</div>';
                 socket.emit('join room', newRoom);
             }
         }
 
-        // Function to return to public chat
         function goGlobal() {
             currentRoom = 'global';
             document.getElementById('display-room').innerText = 'Global';
-            document.getElementById('history').innerHTML = '<div class="system-msg">Returned to Global Chat</div>';
+            document.getElementById('history').innerHTML = '<div class="system-msg">Loading Global Chat...</div>';
             socket.emit('join room', 'global');
         }
 
-        // Initial Join
+        // Connect initially to global
         socket.emit('join room', 'global');
+
+        // Listen for older database logs loading in
+        socket.on('load history', (historyArray) => {
+            document.getElementById('history').innerHTML = '<div class="system-msg">Welcome to ' + currentRoom + '</div>';
+            historyArray.forEach(msg => appendMessage(msg));
+        });
 
         document.getElementById('form').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -107,17 +109,10 @@
             }
         });
 
+        // Listen for live oncoming messages
         socket.on('chat message', (data) => {
-            const div = document.createElement('div');
-            div.classList.add('bubble');
-            div.classList.add(data.user === myName ? 'sent' : 'received');
-            div.textContent = (data.user === myName ? "" : data.user + ": ") + data.text;
-            document.getElementById('history').appendChild(div);
-            document.getElementById('history').scrollTop = document.getElementById('history').scrollHeight;
+            appendMessage(data);
         });
-    </script>
-</body>
-</html>
     </script>
 </body>
 </html>
