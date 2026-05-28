@@ -2,6 +2,10 @@ const express = require('express');
 const app = express();
 const http = require('http').Server(app);
 const io = require('socket.io')(http);
+const Datastore = require('nedb-promises');
+
+// Create/load the database file
+const db = Datastore.create({ filename: 'chat_history.db', autoload: true });
 const PORT = process.env.PORT || 3000;
 
 app.use(express.static(__dirname));
@@ -11,27 +15,42 @@ app.get('/', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-    console.log('User connected');
-
-    // 1. Logic to join a specific room
-    socket.on('join room', (roomName) => {
-        // Leave previous rooms first (except their own ID)
+    
+    // When a user joins a room, fetch their old history
+    socket.on('join room', async (roomName) => {
         socket.rooms.forEach(room => {
             if (room !== socket.id) socket.leave(room);
         });
         
         socket.join(roomName);
-        console.log(`User joined room: ${roomName}`);
+        
+        // Find all past messages belonging to this room, sorted by time
+        try {
+            const history = await db.find({ room: roomName }).sort({ timestamp: 1 });
+            // Send the history back ONLY to the user who just joined
+            socket.emit('load history', history);
+        } catch (err) {
+            console.error("Error loading history:", err);
+        }
     });
 
-    // 2. Logic to send message ONLY to that room
-    socket.on('chat message', (data) => {
-        // data.room is the name of the private room
-        io.to(data.room).emit('chat message', data);
-    });
+    // When a new message is sent, save it FIRST, then broadcast it
+    socket.on('chat message', async (data) => {
+        const messageToSave = {
+            user: data.user,
+            text: data.text,
+            room: data.room,
+            timestamp: Date.now()
+        };
 
-    socket.on('disconnect', () => {
-        console.log('User disconnected');
+        try {
+            // Save to our digital notebook
+            await db.insert(messageToSave);
+            // Broadcast to everyone in the room
+            io.to(data.room).emit('chat message', messageToSave);
+        } catch (err) {
+            console.error("Error saving message:", err);
+        }
     });
 });
 
