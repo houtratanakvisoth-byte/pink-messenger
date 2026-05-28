@@ -1,10 +1,12 @@
 const express = require('express');
 const app = express();
 const http = require('http').Server(app);
-const io = require('socket.io')(http);
+// Increase file upload limit to handle photos
+const io = require('socket.io')(http, {
+    maxHttpBufferSize: 1e7 // 10MB limit for photos
+});
 const Datastore = require('nedb-promises');
 
-// Create/load the database file
 const db = Datastore.create({ filename: 'chat_history.db', autoload: true });
 const PORT = process.env.PORT || 3000;
 
@@ -16,7 +18,7 @@ app.get('/', (req, res) => {
 
 io.on('connection', (socket) => {
     
-    // When a user joins a room, fetch their old history
+    // Handle loading history when joining a room
     socket.on('join room', async (roomName) => {
         socket.rooms.forEach(room => {
             if (room !== socket.id) socket.leave(room);
@@ -24,29 +26,27 @@ io.on('connection', (socket) => {
         
         socket.join(roomName);
         
-        // Find all past messages belonging to this room, sorted by time
         try {
             const history = await db.find({ room: roomName }).sort({ timestamp: 1 });
-            // Send the history back ONLY to the user who just joined
             socket.emit('load history', history);
         } catch (err) {
             console.error("Error loading history:", err);
         }
     });
 
-    // When a new message is sent, save it FIRST, then broadcast it
+    // Handle oncoming messages (Text or Images)
     socket.on('chat message', async (data) => {
         const messageToSave = {
             user: data.user,
-            text: data.text,
+            avatar: data.avatar,
+            text: data.text || null,
+            image: data.image || null, // Stores base64 image string
             room: data.room,
             timestamp: Date.now()
         };
 
         try {
-            // Save to our digital notebook
             await db.insert(messageToSave);
-            // Broadcast to everyone in the room
             io.to(data.room).emit('chat message', messageToSave);
         } catch (err) {
             console.error("Error saving message:", err);
