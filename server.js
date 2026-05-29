@@ -10,9 +10,16 @@ const userDb = Datastore.create({ filename: 'users.db', autoload: true });
 const PORT = process.env.PORT || 3000;
 app.use(express.static(__dirname));
 
+// Track online users
+let onlineCount = 0;
+
 app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
 
 io.on('connection', (socket) => {
+    // Increase count and broadcast to everyone
+    onlineCount++;
+    io.emit('update online count', onlineCount);
+
     socket.on('verify user', async (data) => {
         const user = await userDb.findOne({ username: data.username });
         if (!user) {
@@ -24,20 +31,29 @@ io.on('connection', (socket) => {
             socket.emit('login fail', "Wrong password!");
         }
     });
+
     socket.on('join room', async (roomName) => {
         socket.rooms.forEach(room => { if (room !== socket.id) socket.leave(room); });
         socket.join(roomName);
         const history = await db.find({ room: roomName }).sort({ timestamp: 1 });
         socket.emit('load history', history);
     });
+
     socket.on('chat message', async (data) => {
         const msg = { ...data, timestamp: Date.now() };
         await db.insert(msg);
         io.to(data.room).emit('chat message', msg);
     });
+
     socket.on('video-signal', (data) => {
         socket.to(data.room).emit('video-signal', data);
     });
+
+    // Decrease count when someone leaves
+    socket.on('disconnect', () => {
+        onlineCount = Math.max(0, onlineCount - 1);
+        io.emit('update online count', onlineCount);
+    });
 });
 
-http.listen(PORT, () => { console.log(`App running at ${PORT}`); });
+http.listen(PORT, () => { console.log(`Server live on ${PORT}`); });
