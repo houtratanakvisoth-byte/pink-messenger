@@ -24,20 +24,17 @@ io.on('connection', (socket) => {
             socket.emit('login fail', "Wrong password!");
         }
     });
-
     socket.on('join room', async (roomName) => {
         socket.rooms.forEach(room => { if (room !== socket.id) socket.leave(room); });
         socket.join(roomName);
         const history = await db.find({ room: roomName }).sort({ timestamp: 1 });
         socket.emit('load history', history);
     });
-
     socket.on('chat message', async (data) => {
         const msg = { ...data, timestamp: Date.now() };
         await db.insert(msg);
         io.to(data.room).emit('chat message', msg);
     });
-
     socket.on('video-signal', (data) => {
         socket.to(data.room).emit('video-signal', data);
     });
