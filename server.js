@@ -3,55 +3,6 @@ const app = express();
 const http = require('http').Server(app);
 const io = require('socket.io')(http, { maxHttpBufferSize: 1e7 });
 const Datastore = require('nedb-promises');
-// Add this near the top with your other variables
-const userRooms = {}; 
-
-io.on('connection', (socket) => {
-    // ... existing online count code ...
-
-    socket.on('verify user', async (data) => {
-        // Special Admin Account
-        if (data.username === 'soth' && data.password === '080308') {
-            socket.username = 'soth';
-            socket.isAdmin = true;
-            socket.emit('login success', { username: 'soth', isAdmin: true });
-        } else {
-            // ... your regular login code ...
-            socket.username = data.username;
-            socket.isAdmin = false;
-            socket.emit('login success', { username: data.username, isAdmin: false });
-        }
-    });
-
-    socket.on('join room', (roomName) => {
-        socket.rooms.forEach(room => { if (room !== socket.id) socket.leave(room); });
-        socket.join(roomName);
-        
-        // TRACKING: Save which room this user is in
-        if (socket.username) {
-            userRooms[socket.id] = { name: socket.username, room: roomName };
-        }
-        
-        // PUSH TO ADMIN: Send updated list to 'soth'
-        broadcastAdminData();
-    });
-
-    socket.on('disconnect', () => {
-        delete userRooms[socket.id];
-        broadcastAdminData();
-    });
-
-    function broadcastAdminData() {
-        const list = Object.values(userRooms);
-        // Find 'soth' and send them the secret list
-        io.sockets.sockets.forEach((s) => {
-            if (s.username === 'soth') {
-                s.emit('admin room data', list);
-            }
-        });
-    }
-});
-
 
 const db = Datastore.create({ filename: 'chat_history.db', autoload: true });
 const userDb = Datastore.create({ filename: 'users.db', autoload: true });
@@ -60,30 +11,28 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(__dirname));
 
 let onlineCount = 0;
-// Track tracking user locations: { socketId: { username: '...', room: '...' } }
-const activeUsers = {};
+// We will use ONE object to track everyone's location
+const activeUsers = {}; 
 
-// Ensure special account exists in DB automatically
+// Ensure admin account exists
 async function initAdmin() {
     const admin = await userDb.findOne({ username: 'soth' });
     if (!admin) {
-        await userDb.insert({ username: 'soth', password: 'thisisnotarealpassword' });
+        await userDb.insert({ username: 'soth', password: '080308' });
     }
 }
 initAdmin();
 
 app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
 
-// Helper to broadcast room lists to admin users safely
-function broadcastRoomData() {
+// SINGLE helper function to send room data to soth
+function broadcastAdminData() {
     const data = Object.values(activeUsers);
-    // Send only to the sockets belonging to 'soth'
-    for (let id in io.sockets.sockets) {
-        const s = io.sockets.sockets[id];
+    io.sockets.sockets.forEach((s) => {
         if (s.username === 'soth') {
             s.emit('admin room data', data);
         }
-    }
+    });
 }
 
 io.on('connection', (socket) => {
@@ -91,15 +40,17 @@ io.on('connection', (socket) => {
     io.emit('update online count', onlineCount);
 
     socket.on('verify user', async (data) => {
-        // Special account static verification
+        // 1. Check for Soth (Special Admin)
         if (data.username === 'soth' && data.password === '080308') {
             socket.username = 'soth';
+            socket.isAdmin = true;
             activeUsers[socket.id] = { username: 'soth', room: 'global' };
             socket.emit('login success', { username: 'soth', isAdmin: true });
-            broadcastRoomData();
+            broadcastAdminData();
             return;
         }
 
+        // 2. Regular User Login
         const user = await userDb.findOne({ username: data.username });
         if (!user) {
             await userDb.insert({ username: data.username, password: data.password });
@@ -117,10 +68,10 @@ io.on('connection', (socket) => {
         socket.rooms.forEach(room => { if (room !== socket.id) socket.leave(room); });
         socket.join(roomName);
         
-        // Update tracking tracking
+        // Update tracking when anyone joins a room
         if (socket.username) {
             activeUsers[socket.id] = { username: socket.username, room: roomName };
-            broadcastRoomData();
+            broadcastAdminData(); // Tell soth immediately
         }
 
         const history = await db.find({ room: roomName }).sort({ timestamp: 1 });
@@ -143,7 +94,7 @@ io.on('connection', (socket) => {
         
         if (activeUsers[socket.id]) {
             delete activeUsers[socket.id];
-            broadcastRoomData();
+            broadcastAdminData(); // Refresh soth's list
         }
     });
 });
