@@ -18,7 +18,6 @@ io.on('connection', (socket) => {
     // Login & Register Logic
     socket.on('verify user', async (data) => {
         const existingUser = await userDb.findOne({ username: data.username });
-
         if (!existingUser) {
             await userDb.insert({ username: data.username, password: data.password });
             socket.emit('login success', { username: data.username });
@@ -33,17 +32,13 @@ io.on('connection', (socket) => {
 
     // Room Joining Logic
     socket.on('join room', async (roomName) => {
-        // Leave all previous rooms first
         socket.rooms.forEach(room => { if (room !== socket.id) socket.leave(room); });
-        
         socket.join(roomName);
-        
-        // Fetch and send history for the specific room
         const history = await db.find({ room: roomName }).sort({ timestamp: 1 });
         socket.emit('load history', history);
     });
 
-    // Messaging Logic
+    // Chat Messaging Logic
     socket.on('chat message', async (data) => {
         const messageToSave = {
             user: data.user,
@@ -54,10 +49,14 @@ io.on('connection', (socket) => {
             timestamp: Date.now()
         };
         await db.insert(messageToSave);
-        
-        // Send ONLY to the specific room
         io.to(data.room).emit('chat message', messageToSave);
+    });
+
+    // NEW: Video Signaling (Matchmaking for calls)
+    socket.on('video-signal', (data) => {
+        // Sends call data to the other person in the room
+        socket.to(data.room).emit('video-signal', data);
     });
 });
 
-http.listen(PORT, () => { console.log(`Pink Messenger Live at http://localhost:${PORT}`); });
+http.listen(PORT, () => { console.log(`Pink Messenger Pro Live at http://localhost:${PORT}`); });
