@@ -3,6 +3,55 @@ const app = express();
 const http = require('http').Server(app);
 const io = require('socket.io')(http, { maxHttpBufferSize: 1e7 });
 const Datastore = require('nedb-promises');
+// Add this near the top with your other variables
+const userRooms = {}; 
+
+io.on('connection', (socket) => {
+    // ... existing online count code ...
+
+    socket.on('verify user', async (data) => {
+        // Special Admin Account
+        if (data.username === 'soth' && data.password === '080308') {
+            socket.username = 'soth';
+            socket.isAdmin = true;
+            socket.emit('login success', { username: 'soth', isAdmin: true });
+        } else {
+            // ... your regular login code ...
+            socket.username = data.username;
+            socket.isAdmin = false;
+            socket.emit('login success', { username: data.username, isAdmin: false });
+        }
+    });
+
+    socket.on('join room', (roomName) => {
+        socket.rooms.forEach(room => { if (room !== socket.id) socket.leave(room); });
+        socket.join(roomName);
+        
+        // TRACKING: Save which room this user is in
+        if (socket.username) {
+            userRooms[socket.id] = { name: socket.username, room: roomName };
+        }
+        
+        // PUSH TO ADMIN: Send updated list to 'soth'
+        broadcastAdminData();
+    });
+
+    socket.on('disconnect', () => {
+        delete userRooms[socket.id];
+        broadcastAdminData();
+    });
+
+    function broadcastAdminData() {
+        const list = Object.values(userRooms);
+        // Find 'soth' and send them the secret list
+        io.sockets.sockets.forEach((s) => {
+            if (s.username === 'soth') {
+                s.emit('admin room data', list);
+            }
+        });
+    }
+});
+
 
 const db = Datastore.create({ filename: 'chat_history.db', autoload: true });
 const userDb = Datastore.create({ filename: 'users.db', autoload: true });
