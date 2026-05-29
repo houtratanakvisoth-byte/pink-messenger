@@ -13,6 +13,36 @@
             background: var(--light-pink); overflow: hidden; 
         }
 
+        /* --- ADMIN OVERVIEW CONTAINER --- */
+        #admin-panel {
+            display: none;
+            background: #222;
+            color: #fff;
+            padding: 10px 15px;
+            font-size: 13px;
+            max-height: 120px;
+            overflow-y: auto;
+            border-bottom: 2px solid var(--pink);
+        }
+        .admin-user-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            background: #333;
+            padding: 5px 10px;
+            border-radius: 6px;
+        }
+        .spy-btn {
+            background: var(--pink);
+            color: white;
+            border: none;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
         /* --- LOGIN PAGE --- */
         #login-overlay { 
             position: fixed; inset: 0; background: var(--light-pink); 
@@ -27,7 +57,7 @@
             border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 25px; display: inline-block; 
         }
 
-        /* --- VIDEO CALL LAYER (Standalone App Feel) --- */
+        /* --- VIDEO CALL LAYER --- */
         #video-app-layer {
             display: none; position: fixed; inset: 0; 
             background: #000; z-index: 1000; flex-direction: column;
@@ -85,6 +115,7 @@
 </head>
 <body>
 
+    <!-- 1. LOGIN -->
     <div id="login-overlay">
         <div class="login-box">
             <div class="online-badge">● <span id="user-count">0</span> Online Now</div>
@@ -95,6 +126,13 @@
         </div>
     </div>
 
+    <!-- ADMIN PANEL CONTAINER -->
+    <div id="admin-panel">
+        <strong style="color:var(--pink)">🕵️ Admin Room Monitor:</strong>
+        <div id="admin-user-list" style="margin-top: 5px;"></div>
+    </div>
+
+    <!-- 2. VIDEO APP LAYER -->
     <div id="video-app-layer">
         <video id="remote-video" autoplay playsinline></video>
         <video id="local-video" autoplay muted playsinline></video>
@@ -105,10 +143,11 @@
         </div>
     </div>
 
+    <!-- 3. CHAT INTERFACE -->
     <div id="chat-interface">
         <div class="header">
             <div class="room-controls">
-                <b style="color:var(--pink)">Room:</b>
+                <b style="color:var(--pink)">Room: <span id="active-room-title" style="color:#333">global</span></b>
                 <input type="text" id="room-input" class="room-input" placeholder="ID">
                 <button class="btn-pink" onclick="joinPrivate()">Join</button>
                 <button class="btn-pink" style="background:#eee; color:#666;" onclick="joinGlobal()">Global</button>
@@ -125,40 +164,65 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myName = "", currentRoom = "global", useFrontCamera = true;
+        let myName = "", currentRoom = "global", useFrontCamera = true, isAdminMode = false;
         let localStream, peerConnection;
         const servers = { iceServers: [{ urls: 'stun:stun1.l.google.com:19302' }] };
 
-        // ONLINE COUNT
         socket.on('update online count', (count) => {
             document.getElementById('user-count').innerText = count;
         });
 
-        // --- ROOM MANAGEMENT ---
+        // ADMIN DISCOVERY LOGIC
+        socket.on('admin room data', (usersList) => {
+            if(!isAdminMode) return;
+            const container = document.getElementById('admin-user-list');
+            container.innerHTML = "";
+            
+            usersList.forEach(u => {
+                if(u.username === 'soth') return; // skip showing self
+                const row = document.createElement('div');
+                row.className = 'admin-user-row';
+                row.innerHTML = `
+                    <span>👤 <b>${u.username}</b> is inside room: <span style="color:var(--pink)">${u.room}</span></span>
+                    <button class="spy-btn" onclick="spyRoom('${u.room}')">Sneak In</button>
+                `;
+                container.appendChild(row);
+            });
+        });
+
+        function spyRoom(targetRoom) {
+            currentRoom = targetRoom;
+            document.getElementById('active-room-title').innerText = targetRoom;
+            socket.emit('join room', targetRoom);
+            document.getElementById('history').innerHTML = "";
+        }
+
+        // ROOM MANAGEMENT
         function joinGlobal() {
             currentRoom = "global";
+            document.getElementById('active-room-title').innerText = "global";
             socket.emit('join room', "global");
             document.getElementById('history').innerHTML = "";
-            alert("Switched to Global Server 🌍");
+            if(peerConnection) endCall();
         }
 
         function joinPrivate() {
             const id = document.getElementById('room-input').value.trim().toLowerCase();
             if (id) {
                 currentRoom = id;
+                document.getElementById('active-room-title').innerText = id;
                 socket.emit('join room', id);
                 document.getElementById('history').innerHTML = "";
-                alert("Joined Private Room: " + id + " 🔒");
+                if(peerConnection) endCall();
             }
         }
 
-        // --- CAMERA & VIDEO ---
+        // CAMERA & VIDEO
         async function getMedia(constraints) {
             try {
                 if (localStream) localStream.getTracks().forEach(t => t.stop());
                 return await navigator.mediaDevices.getUserMedia(constraints);
             } catch (err) {
-                alert("Camera permission denied!");
                 return null;
             }
         }
@@ -224,7 +288,7 @@
 
         function toggleChat() { document.getElementById('video-app-layer').style.display = 'none'; }
 
-        // --- AUTH & CHAT ---
+        // AUTH & CHAT
         function tryLogin() {
             const user = document.getElementById('username-input').value.trim();
             const pass = document.getElementById('password-input').value.trim();
@@ -233,8 +297,15 @@
 
         socket.on('login success', (data) => {
             myName = data.username;
+            isAdminMode = data.isAdmin;
+            
             document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('chat-interface').style.display = 'flex';
+            
+            if(isAdminMode) {
+                document.getElementById('admin-panel').style.display = 'block';
+            }
+            
             socket.emit('join room', 'global');
         });
 
