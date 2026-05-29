@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pink Messenger | Mobile Pro</title>
+    <title>Pink Messenger | Pro Mobile</title>
     <style>
         :root { --pink: #ff527b; --bg: #000; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: -apple-system, sans-serif; background: #fff; overflow: hidden; }
 
-        /* --- MOBILE VIDEO LAYER --- */
+        /* --- VIDEO LAYER --- */
         #video-app-layer {
             display: none;
             position: fixed;
@@ -18,70 +18,176 @@
             flex-direction: column;
         }
 
-        /* Remote Video: Takes full height on phones */
-        #remote-video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover; /* Professional full-bleed look on mobile */
-        }
-
-        /* Self Preview: Smaller for mobile */
+        #remote-video { width: 100%; height: 100%; object-fit: cover; background: #222; }
         #local-video { 
-            position: absolute; 
-            top: 20px; 
-            right: 20px; 
-            width: 90px; 
-            height: 130px;
-            border-radius: 12px; 
-            border: 1px solid rgba(255,255,255,0.3);
-            z-index: 1001;
-            object-fit: cover;
+            position: absolute; top: 20px; right: 20px; 
+            width: 90px; height: 130px; border-radius: 12px; 
+            border: 1px solid rgba(255,255,255,0.3); z-index: 1001; object-fit: cover;
+            background: #444;
         }
 
-        /* MOBILE CONTROL BAR */
+        /* MOBILE CONTROLS */
         .call-controls {
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 85%;
-            background: rgba(30, 30, 30, 0.7);
-            backdrop-filter: blur(15px);
-            padding: 12px;
-            border-radius: 40px;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            z-index: 1002;
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            width: 85%; background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(15px);
+            padding: 12px; border-radius: 40px; display: flex; justify-content: space-around; z-index: 1002;
         }
 
         .control-btn {
-            width: 55px; height: 55px;
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
+            width: 55px; height: 55px; border-radius: 50%; border: none;
             display: flex; align-items: center; justify-content: center;
-            font-size: 22px; color: white;
+            font-size: 22px; color: white; cursor: pointer;
         }
-
         .btn-end { background: #ff3b30; }
         .btn-util { background: rgba(255,255,255,0.15); }
-
-        /* MINI MODE FOR CHATTING */
-        #video-app-layer.mini-mode {
-            inset: auto;
-            top: 10px; right: 10px;
-            width: 140px; height: 200px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-        }
-        .mini-mode .call-controls { bottom: 5px; width: 90%; padding: 5px; background: none; }
-        .mini-mode .control-btn { width: 35px; height: 35px; font-size: 14px; }
-        .mini-mode #local-video { display: none; } /* Hide self in mini mode */
 
         /* CHAT UI */
         #chat-interface { display: flex; flex-direction: column; height: 100vh; }
         .header { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; background: #fafafa; }
         .bubble { padding: 12px; border-radius: 18px; background: #fff; border: 1px solid #eee; max-width: 80%; font-size: 15px; }
-        .sent .bubble { background: var(--pink); color: white; align-self: flex-end
+        .sent .bubble { background: var(--pink); color: white; align-self: flex-end; border: none; }
+        .input-area { padding: 10px 15px 30px 15px; display: flex; gap: 10px; background: #fff; border-top: 1px solid #eee; }
+        #msg-input { flex: 1; padding: 12px; border-radius: 25px; border: 1px solid #ddd; outline: none; font-size: 16px; }
+
+        #login-overlay { position: fixed; inset: 0; background: #fff; display: flex; justify-content: center; align-items: center; z-index: 2000; }
+        .login-box { text-align: center; width: 85%; }
+        .online-badge { background: #e3ffed; color: #28a745; padding: 5px 15px; border-radius: 20px; font-size: 14px; margin-bottom: 20px; display: inline-block; }
+    </style>
+</head>
+<body>
+
+    <div id="login-overlay">
+        <div class="login-box">
+            <div class="online-badge">● <span id="user-count">0</span> People Online</div>
+            <h1 style="color:var(--pink);">🌸 Pink Messenger</h1>
+            <input type="text" id="username-input" placeholder="Nickname">
+            <input type="password" id="password-input" placeholder="Password">
+            <button onclick="tryLogin()" style="width:100%; padding:15px; border-radius:15px; border:none; background:var(--pink); color:white; font-weight:bold;">Start Messaging</button>
+        </div>
+    </div>
+
+    <div id="video-app-layer">
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay muted playsinline></video>
+        <div class="call-controls">
+            <button class="control-btn btn-util" onclick="toggleMini()">💬</button>
+            <button class="control-btn btn-util" onclick="flipCamera()">🔄</button>
+            <button class="control-btn btn-end" onclick="endCall()">✖</button>
+        </div>
+    </div>
+
+    <div id="chat-interface">
+        <div class="header">
+            <b style="color:var(--pink)">Room: <span id="display-room">Global</span></b>
+            <button onclick="startCall()" style="background:#4CAF50; color:white; border:none; padding:8px 15px; border-radius:10px; font-weight:bold;">📞 Call</button>
+        </div>
+        <div id="history" class="messages"></div>
+        <form class="input-area" id="form">
+            <input type="text" id="msg-input" placeholder="Type a message...">
+            <button type="submit" style="background:var(--pink); border:none; color:white; width:45px; height:45px; border-radius:50%;">↑</button>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let myName = "", currentRoom = "global", useFrontCamera = true;
+        let localStream, peerConnection;
+        const servers = { iceServers: [{ urls: 'stun:stun1.l.google.com:19302' }] };
+
+        socket.on('update online count', (count) => {
+            document.getElementById('user-count').innerText = count;
+        });
+
+        // FIX: Added error handling to prevent white screen
+        async function getMedia(constraints) {
+            try {
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                }
+                return await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (err) {
+                console.error("Camera Error:", err);
+                alert("Please allow camera access in your settings!");
+                return null;
+            }
+        }
+
+        async function flipCamera() {
+            useFrontCamera = !useFrontCamera;
+            const stream = await getMedia({
+                video: { facingMode: useFrontCamera ? "user" : "environment" },
+                audio: true
+            });
+            
+            if (stream) {
+                localStream = stream;
+                document.getElementById('local-video').srcObject = stream;
+                
+                if (peerConnection) {
+                    const videoTrack = stream.getVideoTracks()[0];
+                    const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(videoTrack);
+                }
+            }
+        }
+
+        async function startCall() {
+            document.getElementById('video-app-layer').style.display = 'flex';
+            const stream = await getMedia({ video: { facingMode: "user" }, audio: true });
+            
+            if (stream) {
+                localStream = stream;
+                document.getElementById('local-video').srcObject = stream;
+                peerConnection = new RTCPeerConnection(servers);
+                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+                
+                peerConnection.ontrack = (e) => {
+                    document.getElementById('remote-video').srcObject = e.streams[0];
+                };
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('video-signal', { type: 'offer', offer: offer, room: currentRoom });
+            }
+        }
+
+        function endCall() {
+            if(localStream) localStream.getTracks().forEach(t => t.stop());
+            if(peerConnection) peerConnection.close();
+            peerConnection = null;
+            document.getElementById('video-app-layer').style.display = 'none';
+        }
+
+        function tryLogin() {
+            const user = document.getElementById('username-input').value.trim();
+            const pass = document.getElementById('password-input').value.trim();
+            if(user && pass) socket.emit('verify user', { username: user, password: pass });
+        }
+
+        socket.on('login success', (data) => {
+            myName = data.username;
+            document.getElementById('login-overlay').style.display = 'none';
+            socket.emit('join room', 'global');
+        });
+
+        // Basic chat message handling
+        socket.on('chat message', (data) => {
+            const div = document.createElement('div');
+            div.className = 'msg-row ' + (data.user === myName ? 'sent' : 'received');
+            div.innerHTML = `<div class="bubble"><b>${data.user}</b><br>${data.text}</div>`;
+            document.getElementById('history').appendChild(div);
+        });
+
+        document.getElementById('form').onsubmit = (e) => {
+            e.preventDefault();
+            const input = document.getElementById('msg-input');
+            if(input.value) {
+                socket.emit('chat message', { user: myName, text: input.value, room: currentRoom });
+                input.value = '';
+            }
+        };
+    </script>
+</body>
+</html>
