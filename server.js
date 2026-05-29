@@ -40,4 +40,4 @@ io.on('connection', (socket) => {
     });
 });
 
-http.listen(PORT, () => { console.log(`Pink Messenger Live at ${PORT}`); });
+http.listen(PORT, () => { console.log(`App running at ${PORT}`); });
