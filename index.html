@@ -19,11 +19,12 @@
         .online-badge { background: #e3ffed; color: #28a745; padding: 6px 15px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 25px; display: inline-block; }
         .login-box input { width: 100%; padding: 14px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #eee; box-sizing: border-box; outline: none; }
 
-        /* --- VIDEO LAYER --- */
+        /* --- VIDEO LAYER (MOBILE OPTIMIZED) --- */
         #video-app-layer { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
-        #remote-video { width: 100%; height: 100%; object-fit: cover; }
+        #remote-video { width: 100%; height: 100%; object-fit: cover; background: #000; }
         #local-video { position: absolute; top: 20px; right: 20px; width: 100px; height: 140px; border-radius: 15px; border: 2px solid rgba(255,255,255,0.4); z-index: 1001; object-fit: cover; background: #222; }
-        .call-controls { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 350px; background: rgba(40, 40, 40, 0.8); backdrop-filter: blur(20px); padding: 15px; border-radius: 50px; display: flex; justify-content: space-evenly; z-index: 1002; }
+        
+        .call-controls { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 85%; max-width: 350px; background: rgba(40, 40, 40, 0.8); backdrop-filter: blur(20px); padding: 15px; border-radius: 50px; display: flex; justify-content: space-evenly; z-index: 1002; }
         .control-btn { width: 55px; height: 55px; border-radius: 50%; border: none; color: white; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .btn-end { background: #ff3b30; }
         .btn-util { background: rgba(255,255,255,0.1); }
@@ -73,7 +74,6 @@
                 <b style="color:var(--pink)">Room: <span id="active-room-title" style="color:#333">global</span></b>
                 <input type="text" id="room-input" class="room-input" placeholder="ID">
                 <button class="btn-pink" onclick="joinPrivate()">Join</button>
-                <button class="btn-pink" style="background:#eee; color:#666;" onclick="joinGlobal()">Global</button>
             </div>
             <button onclick="startCall()" style="background:#4CAF50; color:white; border:none; padding:10px 18px; border-radius:12px; font-weight:bold; cursor:pointer;">📞 Call</button>
         </div>
@@ -90,34 +90,9 @@
         let myName = "", currentRoom = "global", useFrontCamera = true, isAdminMode = false;
         let localStream, peerConnection;
 
-        // ICE Servers for WebRTC Handshake
         const rtcConfig = { iceServers: [{ urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun2.l.google.com:19302' }] };
 
-        // --- ADMIN MONITORING ---
-        socket.on('admin room data', (usersList) => {
-            if(!isAdminMode) return;
-            const container = document.getElementById('admin-user-list');
-            container.innerHTML = "";
-            usersList.forEach(u => {
-                if(u.username === 'soth') return;
-                const row = document.createElement('div');
-                row.className = 'admin-user-row';
-                row.innerHTML = `
-                    <span>👤 <b>${u.username}</b> in <span style="color:var(--pink)">#${u.room}</span></span>
-                    <button class="spy-btn" onclick="spyRoom('${u.room}')">Sneak In</button>
-                `;
-                container.appendChild(row);
-            });
-        });
-
-        function spyRoom(room) {
-            currentRoom = room;
-            document.getElementById('active-room-title').innerText = room;
-            socket.emit('join room', room);
-            document.getElementById('history').innerHTML = "";
-        }
-
-        // --- AUTH & ROOMS ---
+        // --- AUTH & SETUP ---
         function tryLogin() {
             const user = document.getElementById('username-input').value.trim();
             const pass = document.getElementById('password-input').value.trim();
@@ -133,111 +108,80 @@
             socket.emit('join room', 'global');
         });
 
-        function joinGlobal() {
-            currentRoom = "global";
-            document.getElementById('active-room-title').innerText = "global";
-            socket.emit('join room', "global");
-            document.getElementById('history').innerHTML = "";
-        }
-
-        function joinPrivate() {
-            const id = document.getElementById('room-input').value.trim().toLowerCase();
-            if (id) {
-                currentRoom = id;
-                document.getElementById('active-room-title').innerText = id;
-                socket.emit('join room', id);
-                document.getElementById('history').innerHTML = "";
+        // --- WEB RTC VIDEO LOGIC (MOBILE FIX) ---
+        async function getMedia(isFront) {
+            const constraints = { 
+                video: { facingMode: isFront ? "user" : "environment", width: { ideal: 640 }, height: { ideal: 480 } }, 
+                audio: true 
+            };
+            try {
+                return await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (e) {
+                console.error("Camera access failed", e);
+                alert("Please allow camera access in your phone settings!");
             }
         }
 
-        // --- CHAT LOGIC ---
-        socket.on('update online count', (count) => { document.getElementById('user-count').innerText = count; });
-
-        socket.on('chat message', (data) => {
-            const div = document.createElement('div');
-            div.className = 'msg-row ' + (data.user === myName ? 'sent' : 'received');
-            div.innerHTML = `<div class="bubble"><b>${data.user}</b><br>${data.text}</div>`;
-            const h = document.getElementById('history');
-            h.appendChild(div);
-            h.scrollTop = h.scrollHeight;
-        });
-
-        socket.on('load history', (list) => {
-            const h = document.getElementById('history');
-            h.innerHTML = "";
-            list.forEach(msg => {
-                const div = document.createElement('div');
-                div.className = 'msg-row ' + (msg.user === myName ? 'sent' : 'received');
-                div.innerHTML = `<div class="bubble"><b>${msg.user}</b><br>${msg.text}</div>`;
-                h.appendChild(div);
-            });
-            h.scrollTop = h.scrollHeight;
-        });
-
-        document.getElementById('form').onsubmit = (e) => {
-            e.preventDefault();
-            const input = document.getElementById('msg-input');
-            if(input.value) {
-                socket.emit('chat message', { user: myName, text: input.value, room: currentRoom });
-                input.value = '';
-            }
-        };
-
-        // --- WEB RTC VIDEO CALL HANDSHAKE ---
-        async function startCall() {
-            document.getElementById('video-app-layer').style.display = 'flex';
-            localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
-            document.getElementById('local-video').srcObject = localStream;
-
+        async function createPeer(isOffer) {
             peerConnection = new RTCPeerConnection(rtcConfig);
+            
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-            peerConnection.ontrack = (event) => { document.getElementById('remote-video').srcObject = event.streams[0]; };
+            peerConnection.ontrack = (event) => {
+                const remoteVid = document.getElementById('remote-video');
+                remoteVid.srcObject = event.streams[0];
+                // Mobile fix: ensure video plays
+                remoteVid.onloadedmetadata = () => remoteVid.play();
+            };
+
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) socket.emit('video-signal', { type: 'candidate', candidate: event.candidate, room: currentRoom });
             };
+        }
 
+        async function startCall() {
+            document.getElementById('video-app-layer').style.display = 'flex';
+            localStream = await getMedia(true);
+            document.getElementById('local-video').srcObject = localStream;
+
+            await createPeer(true);
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
             socket.emit('video-signal', { type: 'offer', offer: offer, room: currentRoom });
         }
 
         socket.on('video-signal', async (data) => {
-            if (!peerConnection && data.type === 'offer') {
+            if (data.type === 'offer') {
                 document.getElementById('video-app-layer').style.display = 'flex';
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localStream = await getMedia(true);
                 document.getElementById('local-video').srcObject = localStream;
                 
-                peerConnection = new RTCPeerConnection(rtcConfig);
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-                peerConnection.ontrack = (e) => document.getElementById('remote-video').srcObject = e.streams[0];
-                peerConnection.onicecandidate = (e) => e.candidate && socket.emit('video-signal', { type: 'candidate', candidate: e.candidate, room: currentRoom });
-            }
-
-            if (data.type === 'offer') {
+                await createPeer(false);
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
                 socket.emit('video-signal', { type: 'answer', answer: answer, room: currentRoom });
-            } else if (data.type === 'answer') {
+            } 
+            else if (data.type === 'answer' && peerConnection) {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            } else if (data.type === 'candidate') {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } 
+            else if (data.type === 'candidate' && peerConnection) {
+                try { await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e){}
             }
         });
 
         async function flipCamera() {
             useFrontCamera = !useFrontCamera;
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: useFrontCamera ? "user" : "environment" }, audio: true });
-            if (stream) {
-                localStream.getTracks().forEach(t => t.stop());
-                localStream = stream;
-                document.getElementById('local-video').srcObject = stream;
+            const newStream = await getMedia(useFrontCamera);
+            if (newStream) {
+                const videoTrack = newStream.getVideoTracks()[0];
                 if (peerConnection) {
-                    const videoTrack = stream.getVideoTracks()[0];
                     const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-                    if (sender) sender.replaceTrack(videoTrack);
+                    sender.replaceTrack(videoTrack);
                 }
+                localStream.getVideoTracks()[0].stop();
+                localStream = newStream;
+                document.getElementById('local-video').srcObject = newStream;
             }
         }
 
@@ -248,7 +192,20 @@
             document.getElementById('video-app-layer').style.display = 'none';
         }
 
-        function toggleChat() { document.getElementById('video-app-layer').style.display = 'none'; }
-    </script>
-</body>
-</html>
+        // --- ROOMS & CHAT ---
+        function joinPrivate() {
+            const id = document.getElementById('room-input').value.trim();
+            if(id) { currentRoom = id; socket.emit('join room', id); document.getElementById('active-room-title').innerText = id; document.getElementById('history').innerHTML = ""; }
+        }
+
+        socket.on('chat message', (data) => {
+            const div = document.createElement('div');
+            div.className = 'msg-row ' + (data.user === myName ? 'sent' : 'received');
+            div.innerHTML = `<div class="bubble"><b>${data.user}</b><br>${data.text}</div>`;
+            document.getElementById('history').appendChild(div);
+            document.getElementById('history').scrollTop = document.getElementById('history').scrollHeight;
+        });
+
+        document.getElementById('form').onsubmit = (e) => {
+            e.preventDefault();
+            const input = document.
