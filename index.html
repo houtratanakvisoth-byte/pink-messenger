@@ -19,25 +19,25 @@
         .online-badge { background: #e3ffed; color: #28a745; padding: 6px 15px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 25px; display: inline-block; }
         .login-box input { width: 100%; padding: 14px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #eee; box-sizing: border-box; outline: none; }
 
-        /* --- VIDEO --- */
+        /* --- VIDEO LAYER --- */
         #video-app-layer { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
         #remote-video { width: 100%; height: 100%; object-fit: cover; }
-        #local-video { position: absolute; top: 20px; right: 20px; width: 100px; height: 140px; border-radius: 15px; border: 2px solid rgba(255,255,255,0.2); z-index: 1001; object-fit: cover; }
-        .call-controls { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 350px; background: rgba(40, 40, 40, 0.8); backdrop-filter: blur(20px); padding: 15px; border-radius: 50px; display: flex; justify-content: space-evenly; }
+        #local-video { position: absolute; top: 20px; right: 20px; width: 100px; height: 140px; border-radius: 15px; border: 2px solid rgba(255,255,255,0.4); z-index: 1001; object-fit: cover; background: #222; }
+        .call-controls { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 350px; background: rgba(40, 40, 40, 0.8); backdrop-filter: blur(20px); padding: 15px; border-radius: 50px; display: flex; justify-content: space-evenly; z-index: 1002; }
         .control-btn { width: 55px; height: 55px; border-radius: 50%; border: none; color: white; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .btn-end { background: #ff3b30; }
         .btn-util { background: rgba(255,255,255,0.1); }
 
-        /* --- CHAT --- */
+        /* --- CHAT INTERFACE --- */
         #chat-interface { display: none; flex-direction: column; height: 100vh; }
         .header { padding: 15px 20px; background: white; border-bottom: 1px solid #ffe0e6; display: flex; justify-content: space-between; align-items: center; }
         .btn-pink { background: var(--pink-grad); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer; }
         .room-input { width: 60px; padding: 8px; border: 1px solid #ffcad4; border-radius: 10px; outline: none; }
         .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-        .bubble { padding: 12px 16px; border-radius: 20px; background: white; max-width: 75%; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
+        .bubble { padding: 12px 16px; border-radius: 20px; background: white; max-width: 75%; box-shadow: 0 2px 5px rgba(0,0,0,0.03); word-wrap: break-word; }
         .sent .bubble { background: var(--pink-grad); color: white; align-self: flex-end; }
         .input-area { padding: 15px 20px 35px; background: white; border-top: 1px solid #ffe0e6; display: flex; gap: 12px; }
-        #msg-input { flex: 1; padding: 14px 20px; border-radius: 30px; border: 1px solid #ffe0e6; outline: none; }
+        #msg-input { flex: 1; padding: 14px 20px; border-radius: 30px; border: 1px solid #ffe0e6; outline: none; font-size: 16px; }
     </style>
 </head>
 <body>
@@ -75,12 +75,12 @@
                 <button class="btn-pink" onclick="joinPrivate()">Join</button>
                 <button class="btn-pink" style="background:#eee; color:#666;" onclick="joinGlobal()">Global</button>
             </div>
-            <button onclick="startCall()" style="background:#4CAF50; color:white; border:none; padding:10px 18px; border-radius:12px; font-weight:bold;">📞 Call</button>
+            <button onclick="startCall()" style="background:#4CAF50; color:white; border:none; padding:10px 18px; border-radius:12px; font-weight:bold; cursor:pointer;">📞 Call</button>
         </div>
         <div id="history" class="messages"></div>
         <form class="input-area" id="form">
             <input type="text" id="msg-input" placeholder="Type a message..." autocomplete="off">
-            <button type="submit" class="btn-pink" style="width:50px; height:50px; border-radius:50%;">↑</button>
+            <button type="submit" class="btn-pink" style="width:50px; height:50px; border-radius:50%; padding:0;">↑</button>
         </form>
     </div>
 
@@ -90,7 +90,10 @@
         let myName = "", currentRoom = "global", useFrontCamera = true, isAdminMode = false;
         let localStream, peerConnection;
 
-        // ADMIN DISCOVERY
+        // ICE Servers for WebRTC Handshake
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun2.l.google.com:19302' }] };
+
+        // --- ADMIN MONITORING ---
         socket.on('admin room data', (usersList) => {
             if(!isAdminMode) return;
             const container = document.getElementById('admin-user-list');
@@ -100,7 +103,7 @@
                 const row = document.createElement('div');
                 row.className = 'admin-user-row';
                 row.innerHTML = `
-                    <span>👤 <b>${u.username}</b> is in <span style="color:var(--pink)">#${u.room}</span></span>
+                    <span>👤 <b>${u.username}</b> in <span style="color:var(--pink)">#${u.room}</span></span>
                     <button class="spy-btn" onclick="spyRoom('${u.room}')">Sneak In</button>
                 `;
                 container.appendChild(row);
@@ -114,7 +117,22 @@
             document.getElementById('history').innerHTML = "";
         }
 
-        // NAVIGATION
+        // --- AUTH & ROOMS ---
+        function tryLogin() {
+            const user = document.getElementById('username-input').value.trim();
+            const pass = document.getElementById('password-input').value.trim();
+            if(user && pass) socket.emit('verify user', { username: user, password: pass });
+        }
+
+        socket.on('login success', (data) => {
+            myName = data.username;
+            isAdminMode = data.isAdmin;
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('chat-interface').style.display = 'flex';
+            if(isAdminMode) document.getElementById('admin-panel').style.display = 'block';
+            socket.emit('join room', 'global');
+        });
+
         function joinGlobal() {
             currentRoom = "global";
             document.getElementById('active-room-title').innerText = "global";
@@ -132,30 +150,16 @@
             }
         }
 
-        // AUTH
-        function tryLogin() {
-            const user = document.getElementById('username-input').value.trim();
-            const pass = document.getElementById('password-input').value.trim();
-            if(user && pass) socket.emit('verify user', { username: user, password: pass });
-        }
-
-        socket.on('login success', (data) => {
-            myName = data.username;
-            isAdminMode = data.isAdmin;
-            document.getElementById('login-overlay').style.display = 'none';
-            document.getElementById('chat-interface').style.display = 'flex';
-            if(isAdminMode) document.getElementById('admin-panel').style.display = 'block';
-            socket.emit('join room', 'global');
-        });
-
-        // CHAT & VIDEO (EXISTING LOGIC)
+        // --- CHAT LOGIC ---
         socket.on('update online count', (count) => { document.getElementById('user-count').innerText = count; });
+
         socket.on('chat message', (data) => {
             const div = document.createElement('div');
             div.className = 'msg-row ' + (data.user === myName ? 'sent' : 'received');
             div.innerHTML = `<div class="bubble"><b>${data.user}</b><br>${data.text}</div>`;
-            document.getElementById('history').appendChild(div);
-            document.getElementById('history').scrollTop = document.getElementById('history').scrollHeight;
+            const h = document.getElementById('history');
+            h.appendChild(div);
+            h.scrollTop = h.scrollHeight;
         });
 
         socket.on('load history', (list) => {
@@ -179,11 +183,71 @@
             }
         };
 
-        // --- VIDEO CALL FUNCTIONS ---
-        async function getMedia(c) { try { if (localStream) localStream.getTracks().forEach(t => t.stop()); return await navigator.mediaDevices.getUserMedia(c); } catch (e) { return null; } }
-        async function flipCamera() { useFrontCamera = !useFrontCamera; const s = await getMedia({ video: { facingMode: useFrontCamera ? "user" : "environment" }, audio: true }); if (s) { localStream = s; document.getElementById('local-video').srcObject = s; } }
-        async function startCall() { document.getElementById('video-app-layer').style.display = 'flex'; localStream = await getMedia({ video: { facingMode: "user" }, audio: true }); if (localStream) document.getElementById('local-video').srcObject = localStream; socket.emit('video-signal', { type: 'offer', room: currentRoom }); }
-        function endCall() { if(localStream) localStream.getTracks().forEach(t => t.stop()); document.getElementById('video-app-layer').style.display = 'none'; }
+        // --- WEB RTC VIDEO CALL HANDSHAKE ---
+        async function startCall() {
+            document.getElementById('video-app-layer').style.display = 'flex';
+            localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+            document.getElementById('local-video').srcObject = localStream;
+
+            peerConnection = new RTCPeerConnection(rtcConfig);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.ontrack = (event) => { document.getElementById('remote-video').srcObject = event.streams[0]; };
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) socket.emit('video-signal', { type: 'candidate', candidate: event.candidate, room: currentRoom });
+            };
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            socket.emit('video-signal', { type: 'offer', offer: offer, room: currentRoom });
+        }
+
+        socket.on('video-signal', async (data) => {
+            if (!peerConnection && data.type === 'offer') {
+                document.getElementById('video-app-layer').style.display = 'flex';
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('local-video').srcObject = localStream;
+                
+                peerConnection = new RTCPeerConnection(rtcConfig);
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+                peerConnection.ontrack = (e) => document.getElementById('remote-video').srcObject = e.streams[0];
+                peerConnection.onicecandidate = (e) => e.candidate && socket.emit('video-signal', { type: 'candidate', candidate: e.candidate, room: currentRoom });
+            }
+
+            if (data.type === 'offer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('video-signal', { type: 'answer', answer: answer, room: currentRoom });
+            } else if (data.type === 'answer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } else if (data.type === 'candidate') {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        });
+
+        async function flipCamera() {
+            useFrontCamera = !useFrontCamera;
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: useFrontCamera ? "user" : "environment" }, audio: true });
+            if (stream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = stream;
+                document.getElementById('local-video').srcObject = stream;
+                if (peerConnection) {
+                    const videoTrack = stream.getVideoTracks()[0];
+                    const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(videoTrack);
+                }
+            }
+        }
+
+        function endCall() {
+            if(localStream) localStream.getTracks().forEach(t => t.stop());
+            if(peerConnection) peerConnection.close();
+            peerConnection = null;
+            document.getElementById('video-app-layer').style.display = 'none';
+        }
+
         function toggleChat() { document.getElementById('video-app-layer').style.display = 'none'; }
     </script>
 </body>
