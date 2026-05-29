@@ -4,7 +4,7 @@ const http = require('http').Server(app);
 const io = require('socket.io')(http, { maxHttpBufferSize: 1e7 });
 const Datastore = require('nedb-promises');
 
-// Two notebooks: one for messages, one for user passwords
+// Databases
 const db = Datastore.create({ filename: 'chat_history.db', autoload: true });
 const userDb = Datastore.create({ filename: 'users.db', autoload: true });
 
@@ -15,16 +15,14 @@ app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
 
 io.on('connection', (socket) => {
     
-    // NEW: Check if password is correct before letting them join
+    // Login & Register Logic
     socket.on('verify user', async (data) => {
         const existingUser = await userDb.findOne({ username: data.username });
 
         if (!existingUser) {
-            // First time this name is used? Save the password!
             await userDb.insert({ username: data.username, password: data.password });
             socket.emit('login success', { username: data.username });
         } else {
-            // Name exists? Check the password
             if (existingUser.password === data.password) {
                 socket.emit('login success', { username: data.username });
             } else {
@@ -33,13 +31,19 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Room Joining Logic
     socket.on('join room', async (roomName) => {
+        // Leave all previous rooms first
         socket.rooms.forEach(room => { if (room !== socket.id) socket.leave(room); });
+        
         socket.join(roomName);
+        
+        // Fetch and send history for the specific room
         const history = await db.find({ room: roomName }).sort({ timestamp: 1 });
         socket.emit('load history', history);
     });
 
+    // Messaging Logic
     socket.on('chat message', async (data) => {
         const messageToSave = {
             user: data.user,
@@ -50,8 +54,10 @@ io.on('connection', (socket) => {
             timestamp: Date.now()
         };
         await db.insert(messageToSave);
+        
+        // Send ONLY to the specific room
         io.to(data.room).emit('chat message', messageToSave);
     });
 });
 
-http.listen(PORT, () => { console.log(`Live at ${PORT}`); });
+http.listen(PORT, () => { console.log(`Pink Messenger Live at http://localhost:${PORT}`); });
